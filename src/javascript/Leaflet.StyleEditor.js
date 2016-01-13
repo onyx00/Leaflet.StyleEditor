@@ -12,9 +12,9 @@ L.Control.StyleEditor = L.Control.extend({
         showTooltip: true,
         showEditToggleButton: true,
         styleFormOptions: {
-            showEditStroke: false,
-            showEditStrokeOpacity: false,
-            showEditFillOpacity: false,
+            showEditStroke: true,
+            showEditStrokeOpacity: true,
+            showEditFillOpacity: true,
         },
         strings: {
             tooltip: 'Click on the element you want to style',
