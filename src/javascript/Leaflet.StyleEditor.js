@@ -10,6 +10,12 @@ L.Control.StyleEditor = L.Control.extend({
         layerGroups: [],
         openOnLeafletDraw: true,
         showTooltip: true,
+        showEditToggleButton: true,
+        styleFormOptions: {
+            showEditStroke: false,
+            showEditStrokeOpacity: false,
+            showEditFillOpacity: false,
+        },
         strings: {
             tooltip: 'Click on the element you want to style',
             tooltipNext: 'Choose another element you want to style'
@@ -24,8 +30,10 @@ L.Control.StyleEditor = L.Control.extend({
 
     createUi: function() {
         var controlDiv = this.options.controlDiv = L.DomUtil.create('div', 'leaflet-control-styleeditor');
-        var controlUI = this.options.controlUI = L.DomUtil.create('div', 'leaflet-control-styleeditor-interior', controlDiv);
-        controlUI.title = 'Style Editor';
+        if (this.options.showEditToggleButton) {
+            var controlUI = this.options.controlUI = L.DomUtil.create('div', 'leaflet-control-styleeditor-interior', controlDiv);
+            controlUI.title = 'Style Editor';
+        }
 
         var styleEditorDiv = this.options.styleEditorDiv = L.DomUtil.create('div', 'leaflet-styleeditor', this.options.map._container);
         this.options.styleEditorHeader = L.DomUtil.create('div', 'leaflet-styleeditor-header', styleEditorDiv);
@@ -164,7 +172,8 @@ L.Control.StyleEditor = L.Control.extend({
         var styleForms = new L.StyleForms({
             colorRamp: this.options.colorRamp,
             styleEditorUi: this.options.styleEditorUi,
-            currentElement: this.options.currentElement
+            currentElement: this.options.currentElement,
+            styleFormOptions: this.options.styleFormOptions
         });
 
         styleForms.createGeometryForm();

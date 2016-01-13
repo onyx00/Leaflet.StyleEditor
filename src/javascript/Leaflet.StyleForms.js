@@ -27,14 +27,20 @@ L.StyleForms = L.Class.extend({
         this.clearForm();
 
         this.createColor();
-        this.createOpacity();
-        this.createStroke();
+        if (this.options.styleFormOptions.showEditStrokeOpacity) {
+            this.createOpacity();
+        }
+        if (this.options.styleFormOptions.showEditStroke) {
+            this.createStroke();
+        }
 
         // Polygons, Circles get the fill options (TODO: how should we handle groups here?)
         var t = this.options.currentElement.target;
         if (t instanceof L.Polygon || t instanceof L.LayerGroup) {
             this.createFillColor();
-            this.createFillOpacity();
+            if (this.options.styleFormOptions.showEditFillOpacity) {
+                this.createFillOpacity();
+            }
         }
     },
 
