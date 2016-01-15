@@ -246,7 +246,7 @@ L.StyleForms = L.Class.extend({
     },
 
     fireChangeEvent: function(element){
-        this.options.currentElement.target._map.fireEvent('styleeditor:changed', element);
+        this.options.currentElement.target._map.fireEvent('styleeditor:changed', {layer: element});
     },
 
     componentToHex: function(c) {
