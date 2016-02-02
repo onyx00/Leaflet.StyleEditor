@@ -30,6 +30,9 @@ L.StyleForms = L.Class.extend({
         if (this.options.styleFormOptions.showEditStrokeOpacity) {
             this.createOpacity();
         }
+        if (this.options.styleFormOptions.showEditLinewidth) {
+            this.createLineWidth();
+        }
         if (this.options.styleFormOptions.showEditStroke) {
             this.createStroke();
         }
@@ -169,6 +172,18 @@ L.StyleForms = L.Class.extend({
             var value = e.target.value;
             this.setStyle('opacity', value);
         }.bind(this), this.options.currentElement.target.options.opacity, 0, 1, 0.1);
+    },
+
+    createLineWidth: function() {
+        var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
+        label.innerHTML = 'Linewidth:';
+
+        this.createNumberInput(this.options.styleEditorUi, function(e) {
+            var value = e.target.value;
+            if (1 <= value && value < 20) {
+                this.setStyle('weight', value);
+            }
+        }.bind(this), this.options.currentElement.target.options.weight, 0.1, 10, 1.0);
     },
 
     createFillColor: function() {
