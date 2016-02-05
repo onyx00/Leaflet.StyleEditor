@@ -47,12 +47,26 @@ L.StyleForms = L.Class.extend({
         }
     },
 
+    isTextMarker : function () {
+         return this.options.currentElement.target.feature 
+             && this.options.currentElement.target.feature.properties 
+             && this.options.currentElement.target.feature.properties.text;
+
+    },
+
     createMarkerForm: function() {
         this.clearForm();
-
-        this.createIconUrl();
+        var textMarker = this.isTextMarker();
+        if (textMarker) {
+            this.createTextEdit();
+        }
+        else{
+            this.createIconUrl();
+        }
         this.createMarkerColor();
-        this.createMarkerSize();
+        if (!textMarker) {
+            this.createMarkerSize();
+        }
     },
 
     setNewMarker: function() {
@@ -80,6 +94,10 @@ L.StyleForms = L.Class.extend({
             currentElement.setIcon(newIcon);
             this.fireChangeEvent(currentElement);
         }
+        else{
+            var currentElement = this.options.currentElement.target;
+            this.fireChangeEvent(currentElement);
+        }
     },
 
     createIconUrl: function() {
@@ -100,6 +118,9 @@ L.StyleForms = L.Class.extend({
         this.createColorPicker(this.options.styleEditorUi, function(e) {
             var color = this.rgbToHex(e.target.style.backgroundColor);
             this.options.currentMarkerStyle.color = color.replace("#", "");
+            if (this.isTextMarker()) {
+                this.options.currentElement.target.feature.properties.color = color;
+            }
             this.setNewMarker();
         }.bind(this));
     },
@@ -176,7 +197,7 @@ L.StyleForms = L.Class.extend({
 
     createLineWidth: function() {
         var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
-        label.innerHTML = 'Linewidth:';
+        label.innerHTML = 'Linewidth2:';
 
         this.createNumberInput(this.options.styleEditorUi, function(e) {
             var value = e.target.value;
@@ -184,6 +205,16 @@ L.StyleForms = L.Class.extend({
                 this.setStyle('weight', value);
             }
         }.bind(this), this.options.currentElement.target.options.weight, 0.1, 10, 1.0);
+    },
+
+    createTextEdit: function() {
+        var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
+        label.innerHTML = 'Text:';
+
+        this.createTextInput(this.options.styleEditorUi, function(e) {
+            var value = e.target.value;
+            this.setText(value);
+        }.bind(this), this.options.currentElement.target.feature.properties.text);
     },
 
     createFillColor: function() {
@@ -238,6 +269,18 @@ L.StyleForms = L.Class.extend({
         return numberInput;
     },
 
+    createTextInput: function(parentDiv, callback, value) {
+        var numberInput = L.DomUtil.create('input', 'leaflet-styleeditor-input', parentDiv);
+        numberInput.setAttribute('value', value);
+        L.DomEvent.addListener(numberInput, 'change', function(e) { e.stopPropagation(); callback(e); });
+        L.DomEvent.addListener(numberInput, 'keyup', function(e) { e.stopPropagation(); callback(e); });
+
+        L.DomUtil.create('br', '', parentDiv);
+        L.DomUtil.create('br', '', parentDiv);
+
+        return numberInput;
+    },
+
     createSelectInput: function(parentDiv, callback, options) {
         var selectBox = L.DomUtil.create('select', 'leaflet-styleeditor-select', parentDiv);
 
@@ -257,6 +300,12 @@ L.StyleForms = L.Class.extend({
         newStyle[option] = value;
         var currentElement = this.options.currentElement.target;
         currentElement.setStyle(newStyle);
+        this.fireChangeEvent(currentElement);
+    },
+
+    setText: function(value) {
+        var currentElement = this.options.currentElement.target;
+        currentElement.feature.properties.text = value;
         this.fireChangeEvent(currentElement);
     },
 
