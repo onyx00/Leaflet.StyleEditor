@@ -197,7 +197,7 @@ L.StyleForms = L.Class.extend({
 
     createLineWidth: function() {
         var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
-        label.innerHTML = 'Linewidth2:';
+        label.innerHTML = 'Linewidth:';
 
         this.createNumberInput(this.options.styleEditorUi, function(e) {
             var value = e.target.value;
