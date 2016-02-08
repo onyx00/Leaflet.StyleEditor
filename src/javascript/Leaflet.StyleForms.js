@@ -54,18 +54,52 @@ L.StyleForms = L.Class.extend({
 
     },
 
+    isRectangleMarker : function () {
+         return this.options.currentElement.target.feature 
+             && this.options.currentElement.target.feature.properties 
+             && this.options.currentElement.target.feature.properties.rectangle;
+    },
+
+    isEllipseMarker : function () {
+         return this.options.currentElement.target.feature 
+             && this.options.currentElement.target.feature.properties 
+             && this.options.currentElement.target.feature.properties.ellipse;
+    },
+
+    hasProperty : function (property) {
+         return this.options.currentElement.target.feature 
+             && this.options.currentElement.target.feature.properties 
+             && this.options.currentElement.target.feature.properties[property];
+    },
+
+    isSpecialMarker : function () {
+         return this.isTextMarker() || this.isRectangleMarker() || this.isEllipseMarker();
+
+    },
+
     createMarkerForm: function() {
         this.clearForm();
         var textMarker = this.isTextMarker();
         if (textMarker) {
             this.createTextEdit();
         }
-        else{
+
+        if (!this.isSpecialMarker()) {
             this.createIconUrl();
+        } else{
+            this.createSpecialMarkerType();
         }
+
+
+
         this.createMarkerColor();
-        if (!textMarker) {
-            this.createMarkerSize();
+
+        if (this.hasProperty('size')) {
+            this.createNumericPropertyChange('Size:', 'size', 0, 500, 10);
+        } else{
+            if (!textMarker) {
+                this.createMarkerSize();
+            }
         }
     },
 
@@ -111,6 +145,30 @@ L.StyleForms = L.Class.extend({
         }.bind(this), this.options.markers);
     },
 
+    createSpecialMarkerType: function() {
+        var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
+        label.innerHTML = 'Type:';
+
+        var currentValue = 'Square';
+        if (this.options.currentElement.target.feature.properties && 
+            this.options.currentElement.target.feature.properties.ellipse) {
+            currentValue = 'Ellipse';
+        }
+        this.createSelectInput(this.options.styleEditorUi, function(e) {
+            var value = e.target.value;
+            var layer = this.options.currentElement.target;
+            if (value === 'Circle') {
+                layer.feature.properties.rectangle = null;
+                layer.feature.properties.ellipse = true;
+            }
+            else  {
+                layer.feature.properties.rectangle = true;
+                layer.feature.properties.ellipse = null;
+            }
+            this.setNewMarker();
+        }.bind(this), ['Circle', 'Square'], currentValue);
+    },
+
     createMarkerColor: function() {
         var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
         label.innerHTML = 'Color:';
@@ -118,9 +176,13 @@ L.StyleForms = L.Class.extend({
         this.createColorPicker(this.options.styleEditorUi, function(e) {
             var color = this.rgbToHex(e.target.style.backgroundColor);
             this.options.currentMarkerStyle.color = color.replace("#", "");
-            if (this.isTextMarker()) {
-                this.options.currentElement.target.feature.properties.color = color;
+            if (!this.options.currentElement.target.feature) {
+                this.options.currentElement.target.feature = {};
             }
+            if (!this.options.currentElement.target.feature.properties) {
+                this.options.currentElement.target.feature.properties = {};
+            }
+            this.options.currentElement.target.feature.properties.color = color;
             this.setNewMarker();
         }.bind(this));
     },
@@ -204,7 +266,7 @@ L.StyleForms = L.Class.extend({
             if (1 <= value && value < 20) {
                 this.setStyle('weight', value);
             }
-        }.bind(this), this.options.currentElement.target.options.weight, 0.1, 10, 1.0);
+        }.bind(this), this.options.currentElement.target.options.weight, 0, 20, 1.0);
     },
 
     createTextEdit: function() {
@@ -215,6 +277,18 @@ L.StyleForms = L.Class.extend({
             var value = e.target.value;
             this.setText(value);
         }.bind(this), this.options.currentElement.target.feature.properties.text);
+    },
+
+    createNumericPropertyChange: function(labelText, property, minValue, maxValue, increment) {
+        var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
+        label.innerHTML = labelText;
+
+        this.createNumberInput(this.options.styleEditorUi, function(e) {
+            var value = e.target.value;
+            if (minValue <= value && value <= maxValue) {
+                this.setProperty(property, value);
+            }
+        }.bind(this), this.options.currentElement.target.feature.properties[property], minValue, maxValue, increment);
     },
 
     createFillColor: function() {
@@ -281,12 +355,15 @@ L.StyleForms = L.Class.extend({
         return numberInput;
     },
 
-    createSelectInput: function(parentDiv, callback, options) {
+    createSelectInput: function(parentDiv, callback, options, value) {
         var selectBox = L.DomUtil.create('select', 'leaflet-styleeditor-select', parentDiv);
 
         options.forEach(function(option) {
             var selectOption = L.DomUtil.create('option', 'leaflet-styleeditor-option', selectBox);
             selectOption.setAttribute('value', option);
+            if (value && value === option) {
+                selectOption.setAttribute('selected', 'true');
+            }
             selectOption.innerHTML = option;
         }, this);
 
@@ -306,6 +383,12 @@ L.StyleForms = L.Class.extend({
     setText: function(value) {
         var currentElement = this.options.currentElement.target;
         currentElement.feature.properties.text = value;
+        this.fireChangeEvent(currentElement);
+    },
+
+    setProperty: function(name, value) {
+        var currentElement = this.options.currentElement.target;
+        currentElement.feature.properties[name] = value;
         this.fireChangeEvent(currentElement);
     },
 
