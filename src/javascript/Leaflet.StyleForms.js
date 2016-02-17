@@ -77,6 +77,90 @@ L.StyleForms = L.Class.extend({
 
     },
 
+    createMetaForm: function() {
+        this.clearForm();
+        var layer = this.options.currentElement.target;
+        var meta = layer.meta;
+        var updateFunctions = [];
+
+        if (!meta) {
+            console.log('Layer does not contain a meta object!', layer);
+            throw 'Layer does not contain a meta object!';
+        }
+
+        for(var prop in meta) {
+            var metaProp = meta[prop];
+            if (metaProp.displayName) {
+                var existingValue = layer.feature.properties[metaProp.name];
+                var type = metaProp.type.typeName;
+
+                var control;
+
+                var changed = function(metaProp, updateFunctions, newValue){
+                    console.log('changed Ahaha', metaProp.name, newValue);
+                    var previousValue = layer.feature.properties[metaProp.name];
+                    layer.feature.properties[metaProp.name] = newValue;
+
+                    if (meta.changed) {
+                        meta.changed(layer, metaProp, previousValue, newValue);
+                    }
+                    // After we have any change we move every value from the model to the controls again, so that
+                    // during a change CB, we can change the model.
+                    updateFunctions.forEach(function(curFunc){
+                        curFunc();
+                    });
+                    var currentElement = this.options.currentElement.target;
+                    this.fireChangeEvent(currentElement);
+                }.bind(this, metaProp, updateFunctions);
+
+                var label = L.DomUtil.create('label', 'leaflet-styleeditor-label', this.options.styleEditorUi);
+                label.innerHTML = metaProp.displayName;
+
+                if (type === 'color') {
+                    control = this.createColorPicker(this.options.styleEditorUi, 
+                       function(changed, e){
+                           changed(this.rgbToHex(e.target.style.backgroundColor));
+                       }.bind(this, changed)
+                    );
+                }
+                else if (type === 'number') {
+                    control = this.createNumberInput(this.options.styleEditorUi,
+                        function(changed, e){
+                            changed(e.target.value);
+                        }.bind(this, changed)
+                        , existingValue, 0, metaProp.type.maxValue, metaProp.type.incValue);
+                } else if (type === 'boolean') {
+                    control = this.createBooleanInput(this.options.styleEditorUi,
+                        function(changed, e){
+                            changed(e.target.checked);
+                        }.bind(this, changed)
+                        , existingValue);
+                } else if (type === 'string') {
+                    if (metaProp.type.allowedValues) {
+                        control = this.createSelectInput(this.options.styleEditorUi, 
+                            function(changed, e) {
+                                console.log('changed select', e);
+                                changed(e.srcElement.value);
+                            }.bind(this, changed), metaProp.type.allowedValues, existingValue);
+                    } else{
+                        control = this.createTextInput(this.options.styleEditorUi,
+                            function(changed, e) {
+                                changed(e.target.value);
+                            }.bind(this,changed), existingValue);
+                    }
+                }
+
+                // If the control support updating its value:
+                if (control && control.updateValue) {
+                    updateFunctions.push(function(layer, metaProp, updateFunction){
+                        var newValue = layer.feature.properties[metaProp.name];
+                        updateFunction(newValue);
+                    }.bind(this, layer, metaProp, control.updateValue));
+                }
+            }
+        }
+    },
+
     createMarkerForm: function() {
         this.clearForm();
         var textMarker = this.isTextMarker();
@@ -326,6 +410,22 @@ L.StyleForms = L.Class.extend({
         return colorPickerDiv;
     },
 
+    createBooleanInput: function(parentDiv, callback, value) {
+        var numberInput = L.DomUtil.create('input', '', parentDiv);
+        numberInput.setAttribute('type', 'checkbox');
+        if (value === 'true' || value === true) {
+            numberInput.setAttribute('checked', 'true');
+        }
+
+        L.DomEvent.addListener(numberInput, 'change', function(e) { 
+            e.stopPropagation();
+            callback(e);
+        });
+        L.DomUtil.create('br', '', parentDiv);
+        L.DomUtil.create('br', '', parentDiv);
+        return numberInput;
+    },
+
     createNumberInput: function(parentDiv, callback, value, min, max, step) {
         var numberInput = L.DomUtil.create('input', 'leaflet-styleeditor-input', parentDiv);
         numberInput.setAttribute('type', 'number');
@@ -334,11 +434,30 @@ L.StyleForms = L.Class.extend({
         numberInput.setAttribute('max', max);
         numberInput.setAttribute('step', step);
 
-        L.DomEvent.addListener(numberInput, 'change', function(e) { e.stopPropagation(); callback(e); });
-        L.DomEvent.addListener(numberInput, 'keyup', function(e) { e.stopPropagation(); callback(e); });
+        var lastReportedValue = value;
 
+        var executeCallbackIfRequired = function(e){
+            e.stopPropagation();
+            // We only execute the callback if the value has actually changed (key up often does not change any value).
+            if (lastReportedValue!==e.target.value) {
+                callback(e);
+            }
+            lastReportedValue=e.target.value;
+        };
+
+        L.DomEvent.addListener(numberInput, 'change', executeCallbackIfRequired);
+        L.DomEvent.addListener(numberInput, 'keyup', executeCallbackIfRequired);
         L.DomUtil.create('br', '', parentDiv);
         L.DomUtil.create('br', '', parentDiv);
+
+        // We store an update method in the returned control, so that the model can be set back after callback.
+        // E.g. Chaning the width will change the height in the model if keepaspect==true, so after the callback we want to set all values
+        // from the model back to the controls.
+        numberInput.updateValue = function(numberInput, newValue){
+            if (numberInput.value !== newValue) {
+                numberInput.value = newValue;
+            }
+        }.bind(this, numberInput);
 
         return numberInput;
     },
@@ -359,12 +478,18 @@ L.StyleForms = L.Class.extend({
         var selectBox = L.DomUtil.create('select', 'leaflet-styleeditor-select', parentDiv);
 
         options.forEach(function(option) {
+            var displayName = option;
+            var valueTag = option;
+            if (option.displayname) {
+                displayName = option.displayname;
+                valueTag = option.value;
+            }
             var selectOption = L.DomUtil.create('option', 'leaflet-styleeditor-option', selectBox);
-            selectOption.setAttribute('value', option);
-            if (value && value === option) {
+            selectOption.setAttribute('value', valueTag);
+            if (value && value.toLowerCase() === valueTag) {
                 selectOption.setAttribute('selected', 'true');
             }
-            selectOption.innerHTML = option;
+            selectOption.innerHTML = displayName;
         }, this);
 
         L.DomEvent.addListener(selectBox, 'change', function(e) { e.stopPropagation(); callback(e); });

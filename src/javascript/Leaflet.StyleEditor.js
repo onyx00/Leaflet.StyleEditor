@@ -159,7 +159,13 @@ L.Control.StyleEditor = L.Control.extend({
         this.removeTooltip();
 
         var layer = e.target;
-        if (layer instanceof L.Marker) {
+
+        // If we have metainfo, we create the the form based on meta info.
+        if (layer.meta) {
+            // Form created based on meta info.
+            this.createMetaForm();
+
+        } else if (layer instanceof L.Marker) {
             // marker
             this.createMarkerForm();
         } else {
@@ -189,6 +195,18 @@ L.Control.StyleEditor = L.Control.extend({
         });
 
         styleForms.createMarkerForm();
+    },
+
+    createMetaForm: function() {
+        var styleForms = new L.StyleForms({
+            colorRamp: this.options.colorRamp,
+            styleEditorUi: this.options.styleEditorUi,
+            currentElement: this.options.currentElement,
+            markerApi: this.options.markerApi,
+            markers: this.options.markers
+        });
+
+        styleForms.createMetaForm();
     },
 
     createTooltip: function() {
